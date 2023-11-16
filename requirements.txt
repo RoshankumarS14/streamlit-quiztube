@@ -3,3 +3,4 @@ pytube==15.0.0
 streamlit==1.26.0
 youtube_transcript_api
 openai
+PyPDF2
