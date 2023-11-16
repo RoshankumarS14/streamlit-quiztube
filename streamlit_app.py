@@ -3,6 +3,7 @@ from helpers.youtube_utils import extract_video_id_from_url, get_transcript_text
 from helpers.openai_utils import get_quiz_data
 from helpers.quiz_utils import string_to_list, get_randomized_options
 from helpers.toast_messages import get_random_toast
+from docx import Document
 import PyPDF2
 
 
@@ -49,15 +50,33 @@ def read_pdf_content(uploaded_file):
 
     return text_content
 
+def read_file_content(uploaded_file):
+    content = ""
+    if uploaded_file is not None:
+        content_type = uploaded_file.type
+        if "pdf" in content_type:
+            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            num_pages = len(pdf_reader.pages)
+            for page_num in range(5):
+                page = pdf_reader.getPage(page_num)
+                content += page.extractText()
+        elif "word" in content_type:
+            doc = Document(uploaded_file)
+            full_text = []
+            for para in doc.paragraphs:
+                full_text.append(para.text)
+            content = '\n'.join(full_text)
+    return content
+
 with st.form("user_input"):
-    pdf_file = st.file_uploader("Upload your pdf file", type="pdf")
+    pdf_file = st.file_uploader("Upload your pdf file", type=["pdf", "docx"])
     count = st.text_input("Enter the number of questions you want to generate:")
     OPENAI_API_KEY = st.text_input("Enter your OpenAI API Key:", placeholder="sk-XXXX", type='password')
     submitted = st.form_submit_button("Craft my quiz!")
 
 if submitted or ('quiz_data_list' in st.session_state):
     if not pdf_file:
-        st.info("Please provide a valid pdf file.")
+        st.info("Please provide a valid pdf file or a word file.")
         st.stop()
     elif not OPENAI_API_KEY:
         st.info("Please fill out the OpenAI API Key to proceed. If you don't have one, you can obtain it [here](https://platform.openai.com/account/api-keys).")
@@ -65,7 +84,7 @@ if submitted or ('quiz_data_list' in st.session_state):
         
     with st.spinner("Crafting your quiz...🤓"):
         if submitted:
-            pdf_content = read_pdf_content(pdf_file)
+            pdf_content = read_file_content(pdf_file)
             quiz_data_str = get_quiz_data(pdf_content, OPENAI_API_KEY, count)
             st.session_state.quiz_data_list = string_to_list(quiz_data_str)
 

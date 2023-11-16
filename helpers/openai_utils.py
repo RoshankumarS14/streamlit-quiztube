@@ -37,7 +37,7 @@ def get_quiz_data(text, openai_api_key, count):
             [system_message_prompt, human_message_prompt]
         )
         chain = LLMChain(
-            llm=ChatOpenAI(openai_api_key=openai_api_key),
+            llm=ChatOpenAI(openai_api_key=openai_api_key,model="gpt-4-1106-preview"),
             prompt=chat_prompt,
         )
         return chain.run(text)
