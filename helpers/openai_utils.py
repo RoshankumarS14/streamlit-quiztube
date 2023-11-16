@@ -4,25 +4,26 @@ from langchain.prompts.chat import ChatPromptTemplate, SystemMessagePromptTempla
 from langchain.chains import LLMChain
 
 
-def get_quiz_data(text, openai_api_key):
+def get_quiz_data(text, openai_api_key, count):
     template = f"""
-    You are a helpful assistant programmed to generate questions based on any text provided. For every chunk of text you receive, you're tasked with designing 5 distinct questions. Each of these questions will be accompanied by 3 possible answers: one correct answer and two incorrect ones. 
+    You are a helpful assistant programmed to generate questions based on any text provided. For every chunk of text you receive, you're tasked with designing {count} distinct questions. Each of these questions will be accompanied by 4 possible answers: one correct answer and three incorrect ones. 
 
     For clarity and ease of processing, structure your response in a way that emulates a Python list of lists. 
 
     Your output should be shaped as follows:
 
-    1. An outer list that contains 5 inner lists.
-    2. Each inner list represents a set of question and answers, and contains exactly 4 strings in this order:
+    1. An outer list that contains {count} inner lists.
+    2. Each inner list represents a set of question and answers, and contains exactly 5 strings in this order:
     - The generated question.
     - The correct answer.
     - The first incorrect answer.
     - The second incorrect answer.
+    - The third incorrect answer.
 
     Your output should mirror this structure:
     [
-        ["Generated Question 1", "Correct Answer 1", "Incorrect Answer 1.1", "Incorrect Answer 1.2"],
-        ["Generated Question 2", "Correct Answer 2", "Incorrect Answer 2.1", "Incorrect Answer 2.2"],
+        ["Generated Question 1", "Correct Answer 1", "Incorrect Answer 1.1", "Incorrect Answer 1.2", "Incorrect Answer 1.3"],
+        ["Generated Question 2", "Correct Answer 2", "Incorrect Answer 2.1", "Incorrect Answer 2.2", "Incorrect Answer 2.3"],
         ...
     ]
 

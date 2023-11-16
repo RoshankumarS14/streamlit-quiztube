@@ -3,10 +3,11 @@ from helpers.youtube_utils import extract_video_id_from_url, get_transcript_text
 from helpers.openai_utils import get_quiz_data
 from helpers.quiz_utils import string_to_list, get_randomized_options
 from helpers.toast_messages import get_random_toast
+import PyPDF2
 
 
 st.set_page_config(
-    page_title="QuizTube",
+    page_title="Quiz GPT",
     page_icon="🧠",
     layout="centered",
     initial_sidebar_state="collapsed"
@@ -19,60 +20,44 @@ if 'first_time' not in st.session_state:
     st.toast(message, icon=icon)
     st.session_state.first_time = False
 
-with st.sidebar:
-    st.header("👨‍💻 About the Author")
-    st.write("""
-    **Sven Bosau** is a tech enthusiast, educator, and coder. Driven by passion and a love for sharing knowledge, he's created this platform to make learning more interactive and fun.
 
-    Connect, contribute, or just say hi!
-    """)
-
-    st.divider()
-    st.subheader("🔗 Connect with Me", anchor=False)
-    st.markdown(
-        """
-        - [🐙 Source Code](https://github.com/Sven-Bo/streamlit-quiztube)
-        - [🎥 YouTube Channel](https://youtube.com/@codingisfun)
-        - [☕ Buy me a Coffee](https://pythonandvba.com/coffee-donation)
-        - [🌐 Personal Website](https://pythonandvba.com)
-        - [👔 LinkedIn](https://www.linkedin.com/in/sven-bosau/)
-        """
-    )
-
-    st.divider()
-    st.subheader("🏆 Streamlit Hackathon 2023", anchor=False)
-    st.write("QuizTube proudly stands as Sven's innovative entry for the Streamlit Hackathon held in September 2023. A testament to the power of imagination and code!")
-
-    st.divider()
-    st.write("Made with ♥ in Dresden, Germany")
-
-
-
-st.title(":red[QuizTube] — Watch. Learn. Quiz. 🧠", anchor=False)
+st.title(":red[QuizGPT] — Read. Learn. Quiz. 🧠", anchor=False)
 st.write("""
-Ever watched a YouTube video and wondered how well you understood its content? Here's a fun twist: Instead of just watching on YouTube, come to **QuizTube** and test your comprehension!
+Ever read a Ebook and wondered how well you understood its content? Here's a fun twist: Instead of just reading on book, come to **Quiz GPT** and test your comprehension!
 
 **How does it work?** 🤔
-1. Paste the YouTube video URL of your recently watched video.
+1. Upload your Ebook as pdf file.
 2. Enter your [OpenAI API Key](https://platform.openai.com/account/api-keys).
 
-⚠️ Important: The video **must** have English captions for the tool to work.
+⚠️ Important: The pdf **must** have content in english for the tool to work.
 
 Once you've input the details, voilà! Dive deep into questions crafted just for you, ensuring you've truly grasped the content of the video. Let's put your knowledge to the test! 
 """)
 
-with st.expander("💡 Video Tutorial"):
-    with st.spinner("Loading video.."):
-        st.video("https://youtu.be/yzBr3L2BIto", format="video/mp4", start_time=0)
+# with st.expander("💡 Video Tutorial"):
+#     with st.spinner("Loading video.."):
+#         st.video("https://youtu.be/yzBr3L2BIto", format="video/mp4", start_time=0)
+
+def read_pdf_content(uploaded_file):
+    pdf_reader = PyPDF2.PdfReader(uploaded_file)
+    num_pages = len(pdf_reader.pages)
+
+    text_content = ''
+    for page_num in range(5):
+        page = pdf_reader.pages[page_num]
+        text_content += page.extract_text()
+
+    return text_content
 
 with st.form("user_input"):
-    YOUTUBE_URL = st.text_input("Enter the YouTube video link:", value="https://youtu.be/bcYwiwsDfGE?si=qQ0nvkmKkzHJom2y")
+    pdf_file = st.file_uploader("Upload your pdf file", type="pdf")
+    count = st.text_input("Enter the number of questions you want to generate:")
     OPENAI_API_KEY = st.text_input("Enter your OpenAI API Key:", placeholder="sk-XXXX", type='password')
     submitted = st.form_submit_button("Craft my quiz!")
 
 if submitted or ('quiz_data_list' in st.session_state):
-    if not YOUTUBE_URL:
-        st.info("Please provide a valid YouTube video link. Head over to [YouTube](https://www.youtube.com/) to fetch one.")
+    if not pdf_file:
+        st.info("Please provide a valid pdf file.")
         st.stop()
     elif not OPENAI_API_KEY:
         st.info("Please fill out the OpenAI API Key to proceed. If you don't have one, you can obtain it [here](https://platform.openai.com/account/api-keys).")
@@ -80,9 +65,8 @@ if submitted or ('quiz_data_list' in st.session_state):
         
     with st.spinner("Crafting your quiz...🤓"):
         if submitted:
-            video_id = extract_video_id_from_url(YOUTUBE_URL)
-            video_transcription = get_transcript_text(video_id)
-            quiz_data_str = get_quiz_data(video_transcription, OPENAI_API_KEY)
+            pdf_content = read_pdf_content(pdf_file)
+            quiz_data_str = get_quiz_data(pdf_content, OPENAI_API_KEY, count)
             st.session_state.quiz_data_list = string_to_list(quiz_data_str)
 
             if 'user_answers' not in st.session_state:
