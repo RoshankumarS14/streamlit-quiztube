@@ -4,7 +4,7 @@ from langchain.prompts.chat import ChatPromptTemplate, SystemMessagePromptTempla
 from langchain.chains import LLMChain
 
 
-def get_quiz_data(text, openai_api_key, count):
+def get_quiz_data(text, openai_api_key, count, difficulty):
     template = f"""
     You are a helpful assistant programmed to generate questions based on any text provided. For every chunk of text you receive, you're tasked with designing {count} distinct questions. Each of these questions will be accompanied by 4 possible answers: one correct answer and three incorrect ones. 
 
@@ -29,6 +29,7 @@ def get_quiz_data(text, openai_api_key, count):
 
     It is crucial that you adhere to this format as it's optimized for further Python processing.
 
+    Also the difficulty level of the questions should be {difficulty} / 5. If 1 being very easy and 5 being extreme difficult, generate questions with difficulty level {difficulty}. 
     """
     try:
         system_message_prompt = SystemMessagePromptTemplate.from_template(template)

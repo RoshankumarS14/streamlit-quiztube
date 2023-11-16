@@ -71,6 +71,7 @@ def read_file_content(uploaded_file):
 with st.form("user_input"):
     pdf_file = st.file_uploader("Upload your pdf file", type=["pdf", "docx"])
     count = st.text_input("Enter the number of questions you want to generate:")
+    difficulty = st.slider("Select difficulty level", min_value=1, max_value=5, value=1)
     OPENAI_API_KEY = st.text_input("Enter your OpenAI API Key:", placeholder="sk-XXXX", type='password')
     submitted = st.form_submit_button("Craft my quiz!")
 
@@ -85,7 +86,7 @@ if submitted or ('quiz_data_list' in st.session_state):
     with st.spinner("Crafting your quiz...🤓"):
         if submitted:
             pdf_content = read_file_content(pdf_file)
-            quiz_data_str = get_quiz_data(pdf_content, OPENAI_API_KEY, count)
+            quiz_data_str = get_quiz_data(pdf_content, OPENAI_API_KEY, count, difficulty)
             st.session_state.quiz_data_list = string_to_list(quiz_data_str)
 
             if 'user_answers' not in st.session_state:
