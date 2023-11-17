@@ -1,11 +1,12 @@
 import streamlit as st
 from helpers.youtube_utils import extract_video_id_from_url, get_transcript_text
-from helpers.openai_utils import get_quiz_data
+from helpers.openai_utils import get_quiz_data, get_true_false
 from helpers.quiz_utils import string_to_list, get_randomized_options
 from helpers.toast_messages import get_random_toast
 from docx import Document
 import PyPDF2
-
+import math
+import random
 
 st.set_page_config(
     page_title="Quiz GPT",
@@ -58,8 +59,8 @@ def read_file_content(uploaded_file):
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
             num_pages = len(pdf_reader.pages)
             for page_num in range(5):
-                page = pdf_reader.getPage(page_num)
-                content += page.extractText()
+                page = pdf_reader.pages[page_num]
+                content += page.extract_text()
         elif "word" in content_type:
             doc = Document(uploaded_file)
             full_text = []
@@ -71,7 +72,7 @@ def read_file_content(uploaded_file):
 with st.form("user_input"):
     pdf_file = st.file_uploader("Upload your pdf file", type=["pdf", "docx"])
     count = st.text_input("Enter the number of questions you want to generate:")
-    difficulty = st.slider("Select difficulty level", min_value=1, max_value=5, value=1)
+    difficulty = st.radio("Select Difficulty level:",["Very Easy","Easy","Moderate","Hard","Extreme Hard"])
     OPENAI_API_KEY = st.text_input("Enter your OpenAI API Key:", placeholder="sk-XXXX", type='password')
     submitted = st.form_submit_button("Craft my quiz!")
 
@@ -87,7 +88,14 @@ if submitted or ('quiz_data_list' in st.session_state):
         if submitted:
             pdf_content = read_file_content(pdf_file)
             quiz_data_str = get_quiz_data(pdf_content, OPENAI_API_KEY, count, difficulty)
-            st.session_state.quiz_data_list = string_to_list(quiz_data_str)
+            quit_data_tf = get_true_false(pdf_content, OPENAI_API_KEY, int(int(count)/2), difficulty)
+            # quiz_data_tf = get_true_false(pdf_content, OPENAI_API_KEY, math.floor(int(count)*0.2), difficulty)
+            # quiz_questions = string_to_list(quiz_data_str)[:math.ceil(int(count)*0.8)]
+            # +string_to_list(quiz_data_tf)[:math.floor(int(count)*0.2)]
+            # random.shuffle(quiz_questions)
+            quiz_questions = string_to_list(quiz_data_str)+string_to_list(quit_data_tf)
+            random.shuffle(quiz_questions)
+            st.session_state.quiz_data_list = quiz_questions[:int(count)]  
 
             if 'user_answers' not in st.session_state:
                 st.session_state.user_answers = [None for _ in st.session_state.quiz_data_list]
@@ -106,7 +114,7 @@ if submitted or ('quiz_data_list' in st.session_state):
             for i, q in enumerate(st.session_state.quiz_data_list):
                 options = st.session_state.randomized_options[i]
                 default_index = st.session_state.user_answers[i] if st.session_state.user_answers[i] is not None else 0
-                response = st.radio(q[0], options, index=default_index)
+                response = st.radio(q[0], options, index=default_index, key="QA"+str(i))
                 user_choice_index = options.index(response)
                 st.session_state.user_answers[i] = user_choice_index  # Update the stored answer right after fetching it
 
