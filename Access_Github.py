@@ -2,7 +2,7 @@ from github import Github
 import json
 
 # Your GitHub Personal Access Token
-token = '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'
+token = ''
 
 # Repository information
 repo_owner = 'RoshankumarS14'
