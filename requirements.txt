@@ -7,4 +7,5 @@ PyPDF2
 python-docx
 docx
 streamlit-authenticator
-
+github
+PyGithub
