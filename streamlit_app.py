@@ -11,6 +11,11 @@ from pathlib import Path
 import streamlit_authenticator as stauth
 from github import Github
 import json
+from dotenv import load_dotenv
+import os
+
+# Load variables from .env into the environment
+load_dotenv()
 
 st.set_page_config(
     page_title="Quiz GPT",
@@ -27,7 +32,7 @@ usernames = ["admin@thejobsdriver.careers","sales@thejobsdriver.careers"]
 # Github data
 
 # Your GitHub Personal Access Token
-token = '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'
+token = os.getenv('GITHUB_TOKEN')
 
 # Repository information
 repo_owner = 'RoshankumarS14'
