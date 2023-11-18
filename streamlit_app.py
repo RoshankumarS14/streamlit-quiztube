@@ -9,6 +9,8 @@ import random
 import pickle
 from pathlib import Path
 import streamlit_authenticator as stauth
+from github import Github
+import json
 
 st.set_page_config(
     page_title="Quiz GPT",
@@ -19,14 +21,53 @@ st.set_page_config(
 
 #----USER AUTHENTICATION-------
 
-names = ["Job Driver Careers"]
-usernames = ["sales@thejobsdriver.careers"]
+names = ["Admin","Job Driver Careers"]
+usernames = ["admin@thejobsdriver.careers","sales@thejobsdriver.careers"]
 
-file_path = Path(__file__).parent / "hashed_pw.pkl"
-with file_path.open("rb") as file:
+# Github data
+
+# Your GitHub Personal Access Token
+token = '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'
+
+# Repository information
+repo_owner = 'RoshankumarS14'
+repo_name = 'streamlit-quiztube'
+file_path = 'Questions.json'  # Path to the file in the repository
+
+file_path_passwords = Path(__file__).parent / "hashed_pw.pkl"
+with file_path_passwords.open("rb") as file:
     hashed_passwords = pickle.load(file)
 
-authenticator = stauth.Authenticate({"usernames":{usernames[0]:{"name":names[0],"password":hashed_passwords[0]}}},cookie_name="Quiz",key="abcdef",cookie_expiry_days=0)
+def read_pdf_content(uploaded_file):
+    pdf_reader = PyPDF2.PdfReader(uploaded_file)
+    num_pages = len(pdf_reader.pages)
+
+    text_content = ''
+    for page_num in range(5):
+        page = pdf_reader.pages[page_num]
+        text_content += page.extract_text()
+
+    return text_content
+
+def read_file_content(uploaded_file):
+    content = ""
+    if uploaded_file is not None:
+        content_type = uploaded_file.type
+        if "pdf" in content_type:
+            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            num_pages = len(pdf_reader.pages)
+            for page_num in range(5):
+                page = pdf_reader.pages[page_num]
+                content += page.extract_text()
+        elif "word" in content_type:
+            doc = Document(uploaded_file)
+            full_text = []
+            for para in doc.paragraphs:
+                full_text.append(para.text)
+            content = '\n'.join(full_text)
+        return content
+
+authenticator = stauth.Authenticate({"usernames":{usernames[0]:{"name":names[0],"password":hashed_passwords[0]},usernames[1]:{"name":names[1],"password":hashed_passwords[1]}}},cookie_name="Quiz",key="abcdef",cookie_expiry_days=0)
 
 name, authentication_status, username = authenticator.login("Login","main")
 
@@ -44,95 +85,107 @@ if authentication_status:
         message, icon = get_random_toast()
         st.toast(message, icon=icon)
         st.session_state.first_time = False
+    
+    if username=="admin@thejobsdriver.careers":
+        
+        # Welcome message to admin
+        st.title("Welcome Admin",anchor=False)
 
+        # Generate quiz
+        with st.form("user_input"):
+            pdf_file = st.file_uploader("Upload your pdf file", type=["pdf", "docx"])
+            count = st.text_input("Enter the number of questions you want to generate:")
+            difficulty = st.radio("Select Difficulty level:",["Very Easy","Easy","Moderate","Hard","Extreme Hard"])
+            OPENAI_API_KEY = st.text_input("Enter your OpenAI API Key:", placeholder="sk-XXXX", type='password')
+            submitted = st.form_submit_button("Craft my quiz!")
 
-    st.title(":red[QuizGPT] — Read. Learn. Quiz. 🧠", anchor=False)
-    st.write("""
-    Ever read a Ebook and wondered how well you understood its content? Here's a fun twist: Instead of just reading on book, come to **Quiz GPT** and test your comprehension!
+        if submitted or ('quiz_data_list' in st.session_state):
+            if not pdf_file:
+                st.info("Please provide a valid pdf file or a word file.")
+                st.stop()
+            elif not OPENAI_API_KEY:
+                st.info("Please fill out the OpenAI API Key to proceed. If you don't have one, you can obtain it [here](https://platform.openai.com/account/api-keys).")
+                st.stop()
+                
+            with st.spinner("Crafting your quiz...🤓"):
+                if submitted:
+                    pdf_content = read_file_content(pdf_file)
+                    quiz_data_str = get_quiz_data(pdf_content, OPENAI_API_KEY, count, difficulty)
+                    quit_data_tf = get_true_false(pdf_content, OPENAI_API_KEY, int(int(count)/2), difficulty)
+                    # quiz_data_tf = get_true_false(pdf_content, OPENAI_API_KEY, math.floor(int(count)*0.2), difficulty)
+                    # quiz_questions = string_to_list(quiz_data_str)[:math.ceil(int(count)*0.8)]
+                    # +string_to_list(quiz_data_tf)[:math.floor(int(count)*0.2)]
+                    # random.shuffle(quiz_questions)
+                    quiz_questions = string_to_list(quiz_data_str)+string_to_list(quit_data_tf)
+                    random.shuffle(quiz_questions)
 
-    **How does it work?** 🤔
-    1. Upload your Ebook as pdf file.
-    2. Enter your [OpenAI API Key](https://platform.openai.com/account/api-keys).
+                    # ---Store Quiz Questions in Github-----
 
-    ⚠️ Important: The pdf **must** have content in english for the tool to work.
+                    # Serialize the list of lists to JSON
+                    content_json = json.dumps(quiz_questions[:int(count)])
 
-    Once you've input the details, voilà! Dive deep into questions crafted just for you, ensuring you've truly grasped the content of the video. Let's put your knowledge to the test! 
-    """)
+                    # Authenticate using your token
+                    g = Github(token)
+
+                    # Get the repository
+                    repo = g.get_user(repo_owner).get_repo(repo_name)
+
+                    # Get the file
+                    file = repo.get_contents(file_path, ref="main")  # Change 'main' to your branch name if different
+
+                    # Update the file
+                    repo.update_file(file.path, "Update file content", content_json, file.sha, branch="main")
+
+    else:
+
+        st.title(":red[QuizGPT] — Read. Learn. Quiz. 🧠", anchor=False)
+    # st.write("""
+    # Ever read a Ebook and wondered how well you understood its content? Here's a fun twist: Instead of just reading on book, come to **Quiz GPT** and test your comprehension!
+
+    # **How does it work?** 🤔
+    # 1. Upload your Ebook as pdf file.
+    # 2. Enter your [OpenAI API Key](https://platform.openai.com/account/api-keys).
+
+    # ⚠️ Important: The pdf **must** have content in english for the tool to work.
+
+    # Once you've input the details, voilà! Dive deep into questions crafted just for you, ensuring you've truly grasped the content of the video. Let's put your knowledge to the test! 
+    # """)
 
     # with st.expander("💡 Video Tutorial"):
     #     with st.spinner("Loading video.."):
     #         st.video("https://youtu.be/yzBr3L2BIto", format="video/mp4", start_time=0)
 
-    def read_pdf_content(uploaded_file):
-        pdf_reader = PyPDF2.PdfReader(uploaded_file)
-        num_pages = len(pdf_reader.pages)
+        # ---Get Questions from Github----
 
-        text_content = ''
-        for page_num in range(5):
-            page = pdf_reader.pages[page_num]
-            text_content += page.extract_text()
+        # Authenticate using your token
+        g = Github(token)
 
-        return text_content
+        # Get the repository
+        repo = g.get_user(repo_owner).get_repo(repo_name)
 
-    def read_file_content(uploaded_file):
-        content = ""
-        if uploaded_file is not None:
-            content_type = uploaded_file.type
-            if "pdf" in content_type:
-                pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                num_pages = len(pdf_reader.pages)
-                for page_num in range(5):
-                    page = pdf_reader.pages[page_num]
-                    content += page.extract_text()
-            elif "word" in content_type:
-                doc = Document(uploaded_file)
-                full_text = []
-                for para in doc.paragraphs:
-                    full_text.append(para.text)
-                content = '\n'.join(full_text)
-        return content
+        # Get the file
+        file_content = repo.get_contents(file_path, ref="main")  # Change 'main' to your branch name if different
 
-    with st.form("user_input"):
-        pdf_file = st.file_uploader("Upload your pdf file", type=["pdf", "docx"])
-        count = st.text_input("Enter the number of questions you want to generate:")
-        difficulty = st.radio("Select Difficulty level:",["Very Easy","Easy","Moderate","Hard","Extreme Hard"])
-        OPENAI_API_KEY = st.text_input("Enter your OpenAI API Key:", placeholder="sk-XXXX", type='password')
-        submitted = st.form_submit_button("Craft my quiz!")
+        # Decode the file content from base64 and load as JSON
+        decoded_content = file_content.decoded_content.decode('utf-8')
+        json_content = json.loads(decoded_content)
 
-    if submitted or ('quiz_data_list' in st.session_state):
-        if not pdf_file:
-            st.info("Please provide a valid pdf file or a word file.")
-            st.stop()
-        elif not OPENAI_API_KEY:
-            st.info("Please fill out the OpenAI API Key to proceed. If you don't have one, you can obtain it [here](https://platform.openai.com/account/api-keys).")
-            st.stop()
-            
-        with st.spinner("Crafting your quiz...🤓"):
-            if submitted:
-                pdf_content = read_file_content(pdf_file)
-                quiz_data_str = get_quiz_data(pdf_content, OPENAI_API_KEY, count, difficulty)
-                quit_data_tf = get_true_false(pdf_content, OPENAI_API_KEY, int(int(count)/2), difficulty)
-                # quiz_data_tf = get_true_false(pdf_content, OPENAI_API_KEY, math.floor(int(count)*0.2), difficulty)
-                # quiz_questions = string_to_list(quiz_data_str)[:math.ceil(int(count)*0.8)]
-                # +string_to_list(quiz_data_tf)[:math.floor(int(count)*0.2)]
-                # random.shuffle(quiz_questions)
-                quiz_questions = string_to_list(quiz_data_str)+string_to_list(quit_data_tf)
-                random.shuffle(quiz_questions)
-                st.session_state.quiz_data_list = quiz_questions[:int(count)]  
 
-                if 'user_answers' not in st.session_state:
-                    st.session_state.user_answers = [None for _ in st.session_state.quiz_data_list]
-                if 'correct_answers' not in st.session_state:
-                    st.session_state.correct_answers = []
-                if 'randomized_options' not in st.session_state:
-                    st.session_state.randomized_options = []
+        st.session_state.quiz_data_list = json_content  
 
-                for q in st.session_state.quiz_data_list:
-                    options, correct_answer = get_randomized_options(q[1:])
-                    st.session_state.randomized_options.append(options)
-                    st.session_state.correct_answers.append(correct_answer)
+        if 'user_answers' not in st.session_state:
+            st.session_state.user_answers = [None for _ in st.session_state.quiz_data_list]
+        if 'correct_answers' not in st.session_state:
+            st.session_state.correct_answers = []
+        if 'randomized_options' not in st.session_state:
+            st.session_state.randomized_options = []
 
-            with st.form(key='quiz_form'):
+        for q in st.session_state.quiz_data_list:
+            options, correct_answer = get_randomized_options(q[1:])
+            st.session_state.randomized_options.append(options)
+            st.session_state.correct_answers.append(correct_answer)
+
+        with st.form(key='quiz_form'):
                 st.subheader("🧠 Quiz Time: Test Your Knowledge!", anchor=False)
                 for i, q in enumerate(st.session_state.quiz_data_list):
                     options = st.session_state.randomized_options[i]
