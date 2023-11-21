@@ -62,7 +62,8 @@ if authentication_status:
         
         # Welcome message to admin
         st.title("Welcome Admin",anchor=False)
-
+        st.text(token)
+        
         # Generate quiz
         with st.form("user_input"):
             pdf_file = st.file_uploader("Upload your pdf file", type=["pdf", "docx"])
