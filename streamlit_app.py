@@ -9,6 +9,7 @@ from pathlib import Path
 import streamlit_authenticator as stauth
 from dotenv import dotenv_values
 import pandas as pd
+from dotenv import load_dotenv
 
 st.set_page_config(
     page_title="Quiz GPT",
@@ -16,6 +17,9 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# load .env file
+load_dotenv()
 
 #----USER AUTHENTICATION-------
 
@@ -25,7 +29,7 @@ usernames = ["admin@thejobsdriver.careers","sales@thejobsdriver.careers"]
 # Github data
 
 # Your GitHub Personal Access Token
-token = dotenv_values('.env').get('ACCESS_TOKEN')
+token = os.getenv('ACCESS_TOKEN')
 
 # Path to the file in the repository
 file_path = '/Questions.txt'  
