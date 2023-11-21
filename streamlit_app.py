@@ -30,7 +30,7 @@ usernames = ["admin@thejobsdriver.careers","sales@thejobsdriver.careers"]
 # Github data
 
 # Your GitHub Personal Access Token
-token = os.getenv('ACCESS_TOKEN')
+token = "sl.BqTcPLeFQYTyaxrC5V4dhpLNx9xuWqcIxND-jPX0SqjiXLwXyMXevvtQ-daiIsTnDXkJqtKz5VYXiflE8jxZdiyVdJS5B6ZrtMSSpzmDNIJVjjf4yY5MVDi7qDIV47JhbYTGGRivAXwx"
 
 # Path to the file in the repository
 file_path = '/Questions.txt'  
