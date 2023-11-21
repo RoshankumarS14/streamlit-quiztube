@@ -62,7 +62,7 @@ if authentication_status:
         
         # Welcome message to admin
         st.title("Welcome Admin",anchor=False)
-        st.text(os.genenv("ACCESS_TOKEN"))
+        st.text(os.getenv("ACCESS_TOKEN"))
         
         # Generate quiz
         with st.form("user_input"):
