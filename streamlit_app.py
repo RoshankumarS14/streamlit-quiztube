@@ -2,20 +2,13 @@ import streamlit as st
 from helpers.openai_utils import get_quiz_data, get_true_false
 from helpers.quiz_utils import string_to_list, get_randomized_options
 from helpers.toast_messages import get_random_toast
-from docx import Document
-import PyPDF2
-import math
+from helpers.document_utils import read_file_content, replace_with_list_of_lists, read_list_of_lists, get_quiz_log, add_quiz_log
 import random
 import pickle
 from pathlib import Path
 import streamlit_authenticator as stauth
-from github import Github
-import json
-from dotenv import load_dotenv
-import os
-
-# Load variables from .env into the environment
-load_dotenv()
+from dotenv import dotenv_values
+import pandas as pd
 
 st.set_page_config(
     page_title="Quiz GPT",
@@ -32,45 +25,14 @@ usernames = ["admin@thejobsdriver.careers","sales@thejobsdriver.careers"]
 # Github data
 
 # Your GitHub Personal Access Token
-token = os.getenv('GITHUB_TOKEN')
+token = dotenv_values('.env').get('ACCESS_TOKEN')
 
-# Repository information
-repo_owner = 'RoshankumarS14'
-repo_name = 'streamlit-quiztube'
-file_path = 'Questions.json'  # Path to the file in the repository
+# Path to the file in the repository
+file_path = '/Questions.txt'  
 
 file_path_passwords = Path(__file__).parent / "hashed_pw.pkl"
 with file_path_passwords.open("rb") as file:
     hashed_passwords = pickle.load(file)
-
-def read_pdf_content(uploaded_file):
-    pdf_reader = PyPDF2.PdfReader(uploaded_file)
-    num_pages = len(pdf_reader.pages)
-
-    text_content = ''
-    for page_num in range(5):
-        page = pdf_reader.pages[page_num]
-        text_content += page.extract_text()
-
-    return text_content
-
-def read_file_content(uploaded_file):
-    content = ""
-    if uploaded_file is not None:
-        content_type = uploaded_file.type
-        if "pdf" in content_type:
-            pdf_reader = PyPDF2.PdfReader(uploaded_file)
-            num_pages = len(pdf_reader.pages)
-            for page_num in range(5):
-                page = pdf_reader.pages[page_num]
-                content += page.extract_text()
-        elif "word" in content_type:
-            doc = Document(uploaded_file)
-            full_text = []
-            for para in doc.paragraphs:
-                full_text.append(para.text)
-            content = '\n'.join(full_text)
-        return content
 
 authenticator = stauth.Authenticate({"usernames":{usernames[0]:{"name":names[0],"password":hashed_passwords[0]},usernames[1]:{"name":names[1],"password":hashed_passwords[1]}}},cookie_name="Quiz",key="abcdef",cookie_expiry_days=0)
 
@@ -104,6 +66,18 @@ if authentication_status:
             OPENAI_API_KEY = st.text_input("Enter your OpenAI API Key:", placeholder="sk-XXXX", type='password')
             submitted = st.form_submit_button("Craft my quiz!")
 
+        st.subheader("Quiz Log",anchor=False)
+
+        logs = get_quiz_log(token)
+
+        scores = logs.split('\n')
+        quiz_log = [score.split(':') for score in scores[1:]]
+
+        # Create a DataFrame
+        df = pd.DataFrame(quiz_log, columns=['Name', 'Score'])
+        
+        st.markdown(f'<div style="background-color:#002b36;border-radius:5px;padding:10px;margin-bottom:20px;">{df.to_html(classes="table table-striped table-hover text-center text-nowrap", justify="center")}</div>', unsafe_allow_html=True)
+
         if submitted or ('quiz_data_list' in st.session_state):
             if not pdf_file:
                 st.info("Please provide a valid pdf file or a word file.")
@@ -125,21 +99,18 @@ if authentication_status:
                     random.shuffle(quiz_questions)
 
                     # ---Store Quiz Questions in Github-----
+                    replace_with_list_of_lists(file_path, quiz_questions, token)
+                    st.info("Questions generated successfully!")
+                    st.subheader("Generated Quiz!", anchor=False)
+                    randomized_options = []
+                    for q in quiz_questions:
+                        options, correct_answer = get_randomized_options(q[1:])
+                        randomized_options.append(options)
+                    for i, q in enumerate(quiz_questions):
+                        options = randomized_options[i]
+                        response = st.radio(q[0], options, index=0, key="QA"+str(i))
 
-                    # Serialize the list of lists to JSON
-                    content_json = json.dumps(quiz_questions[:int(count)])
-
-                    # Authenticate using your token
-                    g = Github(token)
-
-                    # Get the repository
-                    repo = g.get_user(repo_owner).get_repo(repo_name)
-
-                    # Get the file
-                    file = repo.get_contents(file_path, ref="main")  # Change 'main' to your branch name if different
-
-                    # Update the file
-                    repo.update_file(file.path, "Update file content", content_json, file.sha, branch="main")
+                
 
     else:
 
@@ -162,21 +133,9 @@ if authentication_status:
 
         # ---Get Questions from Github----
 
-        # Authenticate using your token
-        g = Github(token)
+        result = read_list_of_lists(file_path, token)
 
-        # Get the repository
-        repo = g.get_user(repo_owner).get_repo(repo_name)
-
-        # Get the file
-        file_content = repo.get_contents(file_path, ref="main")  # Change 'main' to your branch name if different
-
-        # Decode the file content from base64 and load as JSON
-        decoded_content = file_content.decoded_content.decode('utf-8')
-        json_content = json.loads(decoded_content)
-
-
-        st.session_state.quiz_data_list = json_content  
+        st.session_state.quiz_data_list = result  
 
         if 'user_answers' not in st.session_state:
             st.session_state.user_answers = [None for _ in st.session_state.quiz_data_list]
@@ -190,6 +149,8 @@ if authentication_status:
             st.session_state.randomized_options.append(options)
             st.session_state.correct_answers.append(correct_answer)
 
+        full_name = st.text_input("Enter your name:",placeholder="Full Name") 
+
         with st.form(key='quiz_form'):
                 st.subheader("🧠 Quiz Time: Test Your Knowledge!", anchor=False)
                 for i, q in enumerate(st.session_state.quiz_data_list):
@@ -197,14 +158,17 @@ if authentication_status:
                     default_index = st.session_state.user_answers[i] if st.session_state.user_answers[i] is not None else 0
                     response = st.radio(q[0], options, index=default_index, key="QA"+str(i))
                     user_choice_index = options.index(response)
-                    st.session_state.user_answers[i] = user_choice_index  # Update the stored answer right after fetching it
-
+                    st.session_state.user_answers[i] = user_choice_index  
+                    
+                # Update the stored answer right after fetching iit
 
                 results_submitted = st.form_submit_button(label='Unveil My Score!')
 
                 if results_submitted:
                     score = sum([ua == st.session_state.randomized_options[i].index(ca) for i, (ua, ca) in enumerate(zip(st.session_state.user_answers, st.session_state.correct_answers))])
                     st.success(f"Your score: {score}/{len(st.session_state.quiz_data_list)}")
+
+                    add_quiz_log(full_name+":"+str(score)+"/"+str(len(st.session_state.quiz_data_list)),token)
 
                     if score == len(st.session_state.quiz_data_list):  # Check if all answers are correct
                         st.balloons()
