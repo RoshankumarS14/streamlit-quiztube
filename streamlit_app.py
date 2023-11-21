@@ -10,6 +10,7 @@ import streamlit_authenticator as stauth
 from dotenv import dotenv_values
 import pandas as pd
 from dotenv import load_dotenv
+import os
 
 st.set_page_config(
     page_title="Quiz GPT",
