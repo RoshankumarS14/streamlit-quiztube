@@ -30,7 +30,7 @@ usernames = ["admin@thejobsdriver.careers","sales@thejobsdriver.careers"]
 # Github data
 
 # Your GitHub Personal Access Token
-token = "sl.BqTcPLeFQYTyaxrC5V4dhpLNx9xuWqcIxND-jPX0SqjiXLwXyMXevvtQ-daiIsTnDXkJqtKz5VYXiflE8jxZdiyVdJS5B6ZrtMSSpzmDNIJVjjf4yY5MVDi7qDIV47JhbYTGGRivAXwx"
+token = "sl.BqS3MwIbVnAhMqu4YYI9a6xy1ARfdxL_SMxP8cCbubL3RYbpoI-uKT4oXM_lnPmDlwC1Id0veErWuCQopalfGx4LVL5bSrVo_S5dfQB2GIsxTIsQNoGgVS600lgQpDHU4UnyHzkGttbW"
 
 # Path to the file in the repository
 file_path = '/Questions.txt'  
