@@ -22,7 +22,7 @@ def read_file_content(uploaded_file):
         if "pdf" in content_type:
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
             num_pages = len(pdf_reader.pages)
-            for page_num in range(5):
+            for page_num in range(num_pages):
                 page = pdf_reader.pages[page_num]
                 content += page.extract_text()
         elif "word" in content_type:
